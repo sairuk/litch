@@ -272,6 +272,9 @@ def purchases(GAME_STORAGE_DIR, cleanup=False):
                         game_thumb = "%s%s" % ( game, game_thumb_ext )
                     except:
                         game_thumb = None
+                        game_thumb_url = None
+                        game_thumb_ext = None
+                        game_thumb_div = None
 
                     # game nfo
                     try:
@@ -315,7 +318,8 @@ def purchases(GAME_STORAGE_DIR, cleanup=False):
                         os.mkdir(outpath)
 
                     # download thumb
-                    if game_thumb is not None:
+                    if 'http' in game_thumb_url:
+                        _log("Attempted to download thumb: %s" % game_thumb_url)
                         out_game_thumb = os.path.join(outpath, "%s_%s" % ( APP_NAME, game_thumb))
                         if not os.path.exists(out_game_thumb):
                             _log("Creating thumb: %s" % out_game_thumb)
