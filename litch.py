@@ -263,12 +263,15 @@ def purchases(GAME_STORAGE_DIR, cleanup=False):
 
                     game_id = ctarget.attrs['data-game_id']
                     # game thumb
-                    game_thumb_div = ctarget.find('div', attrs={'class':'game_thumb'})
-                    # vomit
-                    game_thumb_url = game_thumb_div['style'].split('url(')[-1].replace("'","").replace(")","")
-                    # game thumb extension
-                    game_thumb_ext = os.path.splitext(game_thumb_url)[-1]
-                    game_thumb = "%s%s" % ( game, game_thumb_ext )
+                    try:
+                        game_thumb_div = ctarget.find('div', attrs={'class':'game_thumb'})
+                        # vomit
+                        game_thumb_url = game_thumb_div['style'].split('url(')[-1].replace("'","").replace(")","")
+                        # game thumb extension
+                        game_thumb_ext = os.path.splitext(game_thumb_url)[-1]
+                        game_thumb = "%s%s" % ( game, game_thumb_ext )
+                    except:
+                        game_thumb = None
 
                     # game nfo
                     try:
@@ -312,20 +315,29 @@ def purchases(GAME_STORAGE_DIR, cleanup=False):
                         os.mkdir(outpath)
 
                     # download thumb
-                    out_game_thumb = os.path.join(outpath, "%s_%s" % ( APP_NAME, game_thumb))
-                    _log("Creating thumb: %s" % out_game_thumb)
-                    dl = doconn(client, game_thumb_url, conn_type="GET", stream=True)
-                    with open(out_game_thumb, 'wb') as gt:
-                        gt.write(dl.content)
+                    if game_thumb is not None:
+                        out_game_thumb = os.path.join(outpath, "%s_%s" % ( APP_NAME, game_thumb))
+                        if not os.path.exists(out_game_thumb):
+                            _log("Creating thumb: %s" % out_game_thumb)
+                            dl = doconn(client, game_thumb_url, conn_type="GET", stream=True)
+                            with open(out_game_thumb, 'wb') as gt:
+                                gt.write(dl.content)
+                        else:
+                            _log("Thumb already downloaded")
+                    else:
+                        _log("No thumb available for %s" % game)
 
                     # create nfo
                     out_game_nfo = os.path.join(outpath, "%s_%s" % ( APP_NAME, gamenfo))
-                    _log("Creating nfo: %s" % out_game_nfo)                    
-                    with open(out_game_nfo, 'w') as gn:
-                        gn.write("title: %s\n" % game_title)
-                        gn.write("description: %s\n" % game_desc)
-                        gn.write("game_id: %s\n" % game_id)
-                        gn.write("author: %s\n" % game_author)
+                    if not os.path.exists(out_game_nfo):
+                        _log("Creating nfo: %s" % out_game_nfo)                    
+                        with open(out_game_nfo, 'w') as gn:
+                            gn.write("title: %s\n" % game_title)
+                            gn.write("description: %s\n" % game_desc)
+                            gn.write("game_id: %s\n" % game_id)
+                            gn.write("author: %s\n" % game_author)
+                    else:
+                        _log(".nfo already created")
 
                     cntr = 0
                     for download_id in download_ids:
