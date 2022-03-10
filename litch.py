@@ -116,7 +116,7 @@ def login():
                     'User-Agent' : USER_AGENT,
                     'Referer' : ITCH_LOGIN_URL
                 }    
-    r = doconn(ITCH_LOGIN_URL, conn_type="POST", headers=headers, payload=data)
+    r = doconn(ITCH_LOGIN_URL, conn_type="POST", headers=headers, payload=login_data)
     if r.status_code == 200:
         _log("Login successful")
         if "totp" in r.url:
