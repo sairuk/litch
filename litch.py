@@ -241,12 +241,16 @@ def purchases(GAME_STORAGE_DIR, cleanup=False):
             r =doconn(client, url, conn_type="GET")
 
             soup = BeautifulSoup(r.text, 'lxml')
-            targets = soup.findAll('a', attrs={'class':'button'})
+            targets = soup.findAll('div', attrs={'class':'game_cell'})
+            #targets = soup.findAll('a', attrs={'class':'button'})
             _log("Found %d potential targets" % len(targets))
 
             count = 1
             if len(targets) > 0:
-                for target in targets:
+                for ctarget in targets:
+
+                    target = ctarget.find('a', attrs={'class':'button'}, text="Download")
+
                     target_href = target.attrs['href']
                     target_parts = target_href.split('/')
                     proto = target_parts[0]
@@ -255,6 +259,31 @@ def purchases(GAME_STORAGE_DIR, cleanup=False):
                     key = target_parts[-1]
                     _log("Trying game %s from %s" % (game, developer))
                     ITCH_DEV_URL = "%s//%s" % (proto, developer)
+
+
+                    game_id = ctarget.attrs['data-game_id']
+                    # game thumb
+                    game_thumb_div = ctarget.find('div', attrs={'class':'game_thumb'})
+                    # vomit
+                    game_thumb_url = game_thumb_div['style'].split('url(')[-1].replace("'","").replace(")","")
+                    # game thumb extension
+                    game_thumb_ext = os.path.splitext(game_thumb_url)[-1]
+                    game_thumb = "%s%s" % ( game, game_thumb_ext )
+
+                    # game nfo
+                    try:
+                        game_title = ctarget.find('a', attrs={'class':'title'}).text
+                    except:
+                        game_title = ""
+                    try:
+                        game_author = ctarget.find('a', attrs={'class':'game_link'}).text
+                    except:
+                        game_author = ""
+                    try:
+                        game_desc = ctarget.find('div', attrs={'class':'game_text'}).text
+                    except:
+                        game_desc = ""
+                    gamenfo = "%s.nfo" % game
 
                     # load download page
                     _log("Load the download page for %s" % game, 3)
@@ -269,6 +298,34 @@ def purchases(GAME_STORAGE_DIR, cleanup=False):
                     # csrf_token
                     csrf_elem = dl_soup.find('input', attrs={'type':'hidden','name':'csrf_token'})
                     csrftoken = csrf_elem.attrs['value']
+                                
+                    old_outpath = os.path.join(GAME_STORAGE_DIR, game)
+                    outpath = os.path.join(GAME_STORAGE_DIR, "%s_(%s)" % ( game, game_id ) )
+
+                    # check if data path exists and move and append game_id
+                    if os.path.exists(old_outpath):
+                        os.rename(old_outpath, outpath)
+
+                    _log("Output path is now %s" % outpath)
+
+                    if not os.path.exists(outpath):
+                        os.mkdir(outpath)
+
+                    # download thumb
+                    out_game_thumb = os.path.join(outpath, "%s_%s" % ( APP_NAME, game_thumb))
+                    _log("Creating thumb: %s" % out_game_thumb)
+                    dl = doconn(client, game_thumb_url, conn_type="GET", stream=True)
+                    with open(out_game_thumb, 'wb') as gt:
+                        gt.write(dl.content)
+
+                    # create nfo
+                    out_game_nfo = os.path.join(outpath, "%s_%s" % ( APP_NAME, gamenfo))
+                    _log("Creating nfo: %s" % out_game_nfo)                    
+                    with open(out_game_nfo, 'w') as gn:
+                        gn.write("title: %s\n" % game_title)
+                        gn.write("description: %s\n" % game_desc)
+                        gn.write("game_id: %s\n" % game_id)
+                        gn.write("author: %s\n" % game_author)
 
                     cntr = 0
                     for download_id in download_ids:
@@ -324,8 +381,7 @@ def purchases(GAME_STORAGE_DIR, cleanup=False):
                                 filename = content_disposition.split("=")[-1].replace('"','')
                                 size = int(dl.headers['Content-Length'])
                                 _log("Found %s (%s)" % (filename, auto_size(size)))
-                                
-                            outpath = os.path.join(GAME_STORAGE_DIR, game)
+
 
                             if not os.path.exists(outpath):
                                 os.mkdir(outpath)
