@@ -70,11 +70,35 @@ def auto_size(b):
         return '%.1fKB' % (b / float(1024))
     else:
         return '%dB' % (b)
+        
+
+def doconn(client, url, conn_type="GET", headers={}, payload={}, stream=False, retry=1):
+
+    try:
+        r = None
+        if conn_type == "GET":
+            r = client.get(url, data=payload, headers=headers, stream=stream)
+        elif conn_type == "POST":
+            r = client.post(url, data=payload, headers=headers, stream=stream)
+        elif conn_type == "HEAD":
+            r = client.head(url, data=payload, headers=headers, stream=stream)
+        return r
+    except ConnectionError as e:
+        if retry <= retries:
+            _log("Connection Error, raise: %s" %e)
+            retry += 1
+            doconn(client, url, conn_type, headers, payload, stream, retry)
+            sleep(PAGE_DELAY)
+        else:
+            raise()
+    return None
+
+
 
 def login():
 
     client = requests.session()
-    r = client.get(ITCH_LOGIN_URL)
+    r = doconn(client, ITCH_LOGIN_URL, conn_type="GET")
 
     soup = BeautifulSoup(r.text, 'lxml')
     target = soup.find('input', attrs={'type':'hidden','name':'csrf_token'})
@@ -92,8 +116,7 @@ def login():
                     'User-Agent' : USER_AGENT,
                     'Referer' : ITCH_LOGIN_URL
                 }    
-    r = client.post(ITCH_LOGIN_URL, data=login_data, headers=headers)
-
+    r = doconn(ITCH_LOGIN_URL, conn_type="POST", headers=headers, payload=data)
     if r.status_code == 200:
         _log("Login successful")
         if "totp" in r.url:
@@ -135,7 +158,7 @@ def bundles():
         _log("Starting to read bundles pages", 3)
         url = "%s" % ITCH_BUNDLES
         _log("Reading page %s" % url)
-        r = client.get(url)
+        r = doconn(client, url=url, conn_type="GET")
 
         soup = BeautifulSoup(r.text, 'lxml')
         bundle_section = soup.find('section', attrs={'class':'bundle_keys'})
@@ -146,7 +169,7 @@ def bundles():
             _log("Switching bundles")
             burl = "%s%s" % (ITCH_HOME_URL,link.attrs['href']) 
             _log(burl, 3)
-            b = client.get(burl)
+            b = doconn(client, burl, conn_type="GET")
 
             if b.status_code == 200:
                 _log("Success", 3)
@@ -157,7 +180,7 @@ def bundles():
                 _log("Starting to read bundles page(s)", 3)
                 while next_page is not None:
                     purl = "%s?page=%s" % (burl, next_href)
-                    p = client.get(purl)
+                    p = doconn(client, purl, conn_type="GET")
                     _log("Reading %s" % purl, 3)
                     _log("Switching to page %s" % next_href)
 
@@ -184,7 +207,7 @@ def bundles():
                                         }
                             #_log(payload)
                             _log("Claiming game_id: %s" % game_id)
-                            client.post(burl, data=payload)
+                            doconn(burl, conn_type="POST", data=payload, headers=headers)
                         
                             sleep(ITEM_DELAY)
 
@@ -215,7 +238,7 @@ def purchases(GAME_STORAGE_DIR, cleanup=False):
         while next_page is not None:
             url = "%s?page=%s" % (ITCH_CLAIMED, next_href)
             _log("Reading page %s" % url)
-            r = client.get(url)
+            r =doconn(client, url, conn_type="GET")
 
             soup = BeautifulSoup(r.text, 'lxml')
             targets = soup.findAll('a', attrs={'class':'button'})
@@ -235,7 +258,7 @@ def purchases(GAME_STORAGE_DIR, cleanup=False):
 
                     # load download page
                     _log("Load the download page for %s" % game, 3)
-                    i = client.get(target_href)
+                    i = doconn(client, target_href, conn_type="GET")
                     dl_soup = BeautifulSoup(i.text, 'lxml')
 
                     # find all the downloads
@@ -263,7 +286,8 @@ def purchases(GAME_STORAGE_DIR, cleanup=False):
                                         'Host': developer
                                     }
                         _log("Attempting to initiate authorised download", 3)
-                        dlf = client.post(dlurl, data=payload, headers=headers)
+                        dlf = doconn(client, dlurl, payload=payload, headers=headers, conn_type="POST")
+                        
                         if dlf.status_code == 200:
                             _log("Success", 3)
 
@@ -295,7 +319,7 @@ def purchases(GAME_STORAGE_DIR, cleanup=False):
                                                 'Origin': ITCH_DEV_URL,
                                                 'Host': jdlurl_pieces[2]
                                             }
-                                dl = client.head(jdlurl, headers=headers)
+                                dl = doconn(client, jdlurl, headers=headers, conn_type="HEAD")
                                 content_disposition = dl.headers['Content-Disposition']
                                 filename = content_disposition.split("=")[-1].replace('"','')
                                 size = int(dl.headers['Content-Length'])
@@ -332,7 +356,7 @@ def purchases(GAME_STORAGE_DIR, cleanup=False):
 
                             if not os.path.exists(outfile):
                                 _log("Attempting Download of %s (%s)" % (filename, auto_size(size)))
-                                dl = client.get(jdlurl, headers=headers, stream=True)
+                                dl = doconn(client, jdlurl, headers=headers, stream=True, conn_type="GET")
                                 if dl.status_code == 200:
                                     _log("Downloading %s (%s)" % (filename, auto_size(size)))
                                     with open(outfile, 'wb') as f:
