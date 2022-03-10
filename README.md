@@ -37,13 +37,13 @@ This will go to your bundles page, get the available links then look for any unc
 ```
 ./litch.py --download-purchases
 ```
-This will walk through you purchase pages and download any files your don't already have on disk, default download location is to the current directory. Download location can be overridden with the `--content-path` option
+This will walk through your purchase pages and download any files you don't already have on disk, default download location is to the current directory. Download location can be overridden with the `--content-path` option
 
 #### Download Purchases to alternate location
 ```
 ./litch.py --download-purchases --content-path PATH
 ```
-Downlod your purchase to alternate storage
+Download your purchase to alternate storage
 
 #### Download Purchase and clean up bad files
 ```
