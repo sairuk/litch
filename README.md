@@ -18,6 +18,11 @@ Automatically
 - download purchases
 - claim bundle members
 
+## Installation
+- Clone the repo
+- Install bs4`python3 -m pip install bs4`
+- See Usage section
+
 ## Usage
 #### Log into itch with litch
 ```
