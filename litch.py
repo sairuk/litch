@@ -220,7 +220,7 @@ def bundles():
         login()
         bundles()
 
-def purchases(GAME_STORAGE_DIR, cleanup=False):
+def purchases(GAME_STORAGE_DIR, cleanup=False, start_page=1):
     _log("Loading Purchases")
     _log("Will download to %s" % GAME_STORAGE_DIR)
 
@@ -232,7 +232,7 @@ def purchases(GAME_STORAGE_DIR, cleanup=False):
             client.cookies.update(pickle.load(cj))
         
         next_page = ""
-        next_href = 1
+        next_href = start_page
 
         _log("Starting to read purchase page(s)", 3)
         while next_page is not None:
@@ -468,7 +468,7 @@ def main(args):
 
     if args.download_purchases:
         if args.cleanup_incorrect_files:
-            purchases(GAME_STORAGE_DIR, True)
+            purchases(GAME_STORAGE_DIR, True, args.start_page)
         else:
             purchases(GAME_STORAGE_DIR)
 
@@ -491,6 +491,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--cleanup-incorrect-files', const=True, default=False, type=bool, nargs="?",
                         help='remove incorrect files when found (filesize check on, itch internal hosting only)')
+
+    parser.add_argument('--start-page', default=1, type=int,
+                        help='override starting page')
 
     args = parser.parse_args()
     main(args)
