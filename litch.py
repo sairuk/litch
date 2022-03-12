@@ -72,8 +72,9 @@ def auto_size(b):
         return '%dB' % (b)
         
 
-def doconn(client, url, conn_type="GET", headers={}, payload={}, stream=False, retry=1):
+def doconn(client, url, conn_type="GET", headers={}, payload={}, stream=False, retry=1, retries=3):
 
+    exception = False
     try:
         r = None
         if conn_type == "GET":
@@ -82,15 +83,20 @@ def doconn(client, url, conn_type="GET", headers={}, payload={}, stream=False, r
             r = client.post(url, data=payload, headers=headers, stream=stream)
         elif conn_type == "HEAD":
             r = client.head(url, data=payload, headers=headers, stream=stream)
-        return r
-    except ConnectionError as e:
+        if r.status_code == 200:
+            return r
+        else:
+            exception = True
+    except:
+        _log("Connection failed, going to retry")
+        exception = True
+
+    if exception:
         if retry <= retries:
-            _log("Connection Error, raise: %s" %e)
             retry += 1
             doconn(client, url, conn_type, headers, payload, stream, retry)
             sleep(PAGE_DELAY)
-        else:
-            raise()
+
     return None
 
 
@@ -260,6 +266,7 @@ def purchases(GAME_STORAGE_DIR, cleanup=False, start_page=1):
                     _log("Trying game %s from %s" % (game, developer))
                     ITCH_DEV_URL = "%s//%s" % (proto, developer)
 
+                    _log("===[ can resume from this page --start-page %s ]===" % next_href)
 
                     game_id = ctarget.attrs['data-game_id']
                     # game thumb
@@ -393,10 +400,19 @@ def purchases(GAME_STORAGE_DIR, cleanup=False, start_page=1):
                                                 'Host': jdlurl_pieces[2]
                                             }
                                 dl = doconn(client, jdlurl, headers=headers, conn_type="HEAD")
-                                content_disposition = dl.headers['Content-Disposition']
-                                filename = content_disposition.split("=")[-1].replace('"','')
-                                size = int(dl.headers['Content-Length'])
-                                _log("Found %s (%s)" % (filename, auto_size(size)))
+                                if dl is not None:
+                                    if 'content-disposition' in dl.headers.keys():
+                                        content_disposition = dl.headers['Content-Disposition']
+                                        filename = content_disposition.split("=")[-1].replace('"','')
+                                    elif'GoogleAccessId' in jdlurl:
+                                        ## old google?
+                                        filename = jdlurl.split('?')[0].split('/')[-1]
+                                    size = int(dl.headers['Content-Length'])
+                                    _log("Found %s (%s)" % (filename, auto_size(size)))
+                                else:
+                                    _log("Failed to get headers for %s, dumping" % (jdlurl))
+                                    _log(dl.headers)
+                                    next
 
 
                             if not os.path.exists(outpath):
@@ -421,7 +437,7 @@ def purchases(GAME_STORAGE_DIR, cleanup=False, start_page=1):
                                         else:
                                             _log("Filesize is wrong but user did not as for automated cleanup %s" % filename)
                                     else:
-                                        _log("Filename: %s\n\tFilesize OK\n\tExpected: %s\n\tFound: %s" % (filename, auto_size(size), auto_size(ondisk_size)))
+                                        _log("Filename: %s\n\tFilesize GOOD\n\tExpected: %s\n\tFound: %s" % (filename, auto_size(size), auto_size(ondisk_size)))
                                 else:
                                     _log("Existing file not found")
 
@@ -429,13 +445,14 @@ def purchases(GAME_STORAGE_DIR, cleanup=False, start_page=1):
                             if not os.path.exists(outfile):
                                 _log("Attempting Download of %s (%s)" % (filename, auto_size(size)))
                                 dl = doconn(client, jdlurl, headers=headers, stream=True, conn_type="GET")
-                                if dl.status_code == 200:
-                                    _log("Downloading %s (%s)" % (filename, auto_size(size)))
-                                    with open(outfile, 'wb') as f:
-                                        f.write(dl.content)
-                                else:
-                                    _log("Download failed with %s %s" % (dl.status_code, dl.reason))
-                                    _log(jdlurl)
+                                if dl is not None:
+                                    if dl.status_code == 200:
+                                        _log("Downloading %s (%s)" % (filename, auto_size(size)))
+                                        with open(outfile, 'wb') as f:
+                                            f.write(dl.content)
+                                    else:
+                                        _log("Download failed with %s %s" % (dl.status_code, dl.reason))
+                                        _log(jdlurl)
                             else:
                                 _log("File exists, skipping: %s (%s)" % (filename, auto_size(size)))
 
