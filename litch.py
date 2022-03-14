@@ -198,11 +198,17 @@ def bundles():
                     targets = psoup.findAll('form', attrs={'class':'form','method':'post'})
                     _log("Found %d unclaimed items" % len(targets))
 
-                    if len(targets) > 0:
+                    targets_title = psoup.findAll('div', attrs={'class':'game_row_data'})
+                    
+                    if len(targets_title) > 0:
                         _log("Starting claim process")
-                        for target in targets:
+                        for target in targets_title:
                             game_id_target = target.find('input', attrs={'type':'hidden','name':'game_id'})
+                            if str(game_id_target) == "None":
+                                continue
+                                
                             game_id = game_id_target['value']
+                            game_title = target.find('h2', attrs={'class':'game_title'}).find('a').string
 
                             payload = dict(game_id=game_id, action='claim', csrf_token=csrftoken)
                             headers =   {   
@@ -212,7 +218,7 @@ def bundles():
                                             'Host': ITCH_HOST
                                         }
                             #_log(payload)
-                            _log("Claiming game_id: %s" % game_id)
+                            _log("Claiming game: %s (ID %s)" % (game_title, game_id))
                             doconn(burl, conn_type="POST", data=payload, headers=headers)
                         
                             sleep(ITEM_DELAY)
