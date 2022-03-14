@@ -219,7 +219,7 @@ def bundles():
                                         }
                             #_log(payload)
                             _log("Claiming game: %s (ID %s)" % (game_title, game_id))
-                            doconn(burl, conn_type="POST", data=payload, headers=headers)
+                            doconn(client, burl, conn_type="POST", payload=payload, headers=headers)
                         
                             sleep(ITEM_DELAY)
 
