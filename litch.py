@@ -172,7 +172,7 @@ def bundles():
         _log("Found %d bundles" % len(bundle_links))
 
         for link in bundle_links:
-            _log("Switching bundles")
+            _log("Switching bundles: %s" % link.string)
             burl = "%s%s" % (ITCH_HOME_URL,link.attrs['href']) 
             _log(burl, 3)
             b = doconn(client, burl, conn_type="GET")
