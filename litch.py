@@ -172,7 +172,7 @@ def bundles():
         _log("Found %d bundles" % len(bundle_links))
 
         for link in bundle_links:
-            _log("Switching bundles")
+            _log("Switching bundles: %s" % link.string)
             burl = "%s%s" % (ITCH_HOME_URL,link.attrs['href']) 
             _log(burl, 3)
             b = doconn(client, burl, conn_type="GET")
@@ -198,11 +198,17 @@ def bundles():
                     targets = psoup.findAll('form', attrs={'class':'form','method':'post'})
                     _log("Found %d unclaimed items" % len(targets))
 
-                    if len(targets) > 0:
+                    targets_title = psoup.findAll('div', attrs={'class':'game_row_data'})
+                    
+                    if len(targets_title) > 0:
                         _log("Starting claim process")
-                        for target in targets:
+                        for target in targets_title:
                             game_id_target = target.find('input', attrs={'type':'hidden','name':'game_id'})
+                            if str(game_id_target) == "None":
+                                continue
+                                
                             game_id = game_id_target['value']
+                            game_title = target.find('h2', attrs={'class':'game_title'}).find('a').string
 
                             payload = dict(game_id=game_id, action='claim', csrf_token=csrftoken)
                             headers =   {   
@@ -211,9 +217,10 @@ def bundles():
                                             'Origin': ITCH_HOME_URL,
                                             'Host': ITCH_HOST
                                         }
-                            #_log(payload)
-                            _log("Claiming game_id: %s" % game_id)
-                            doconn(burl, conn_type="POST", data=payload, headers=headers)
+                            
+                            game_title = ''.join(char for char in game_title if ord(char) < 128)
+                            _log("Claiming game: %s (ID %s)" % (game_title, game_id))
+                            doconn(client, burl, conn_type="POST", payload=payload, headers=headers)
                         
                             sleep(ITEM_DELAY)
 
