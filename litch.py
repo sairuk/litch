@@ -217,7 +217,8 @@ def bundles():
                                             'Origin': ITCH_HOME_URL,
                                             'Host': ITCH_HOST
                                         }
-                            #_log(payload)
+                            
+                            game_title = ''.join(char for char in game_title if ord(char) < 128)
                             _log("Claiming game: %s (ID %s)" % (game_title, game_id))
                             doconn(client, burl, conn_type="POST", payload=payload, headers=headers)
                         
